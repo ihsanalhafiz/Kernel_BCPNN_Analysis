@@ -6,7 +6,7 @@
 #include "prj.cuh"
 
 __global__
-void upddenact_kernel(float *axoact, int *Hihjhi, int *Chjhi, int Hj, int denHi, int Mi, float *denact) {
+void upddenact_kernel(float *axoact, int *Hihjhi, int Hj, int denHi, int Mi, float *denact) {
     int h = blockIdx.x * blockDim.x + threadIdx.x;
     if (h >= Hj * denHi)
         return;
@@ -18,10 +18,10 @@ void upddenact_kernel(float *axoact, int *Hihjhi, int *Chjhi, int Hj, int denHi,
         denact[hj * denNi + dhi * Mi + mi] = axoact[hi * Mi + mi];
 }
 
-void upddenact_cu(float *axoact, int *Hihjhi, int *Chjhi, int Hj, int denHi, int Mi, float *denact) {
-    int blockSize = 128;
+void upddenact_cu(float *axoact, int *Hihjhi, int Hj, int denHi, int Mi, float *denact) {
+    int blockSize = 32;
     int numBlocks_hjdhi = (Hj * denHi + blockSize - 1) / blockSize;
-    upddenact_kernel <<< numBlocks_hjdhi, blockSize>>>(axoact, Hihjhi, Chjhi, Hj, denHi, Mi, denact);
+    upddenact_kernel <<< numBlocks_hjdhi, blockSize>>>(axoact, Hihjhi, Hj, denHi, Mi, denact);
     CUDA_CHECK_ERROR(cudaPeekAtLastError());
     cudaDeviceSynchronize();
 }
@@ -79,7 +79,9 @@ void updtraces_cu(float *denact, float *trgact, float prn,
     int numBlocksi = (Hj * denNi + blockSize - 1) / blockSize;
     int numBlocksji = (Nj * denNi + blockSize - 1) / blockSize;
     updtrcjzp_kernel <<< numBlocksj, blockSize>>>(trgact, Nj, fgain, eps, tauzjdt, prntaupdt, Zj, Pj);
+    CUDA_CHECK_ERROR(cudaPeekAtLastError());
     updtrcizp_kernel <<< numBlocksi, blockSize>>>(denact, Hj, denNi, fgain, eps, tauzidt, prntaupdt, Zi, Pi);
+    CUDA_CHECK_ERROR(cudaPeekAtLastError());
     updtrcjip_kernel <<< numBlocksji, blockSize>>>(Zj, Zi, Nj, Mj, denNi, prntaupdt, Pji);
     CUDA_CHECK_ERROR(cudaPeekAtLastError());
     cudaDeviceSynchronize();

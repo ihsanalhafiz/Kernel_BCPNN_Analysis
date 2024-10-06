@@ -71,6 +71,13 @@ const float sadgain = 1.0;
 const float tausadt = 1.0;
 const float nampl = 1.0;
 const float nfreq = 0.1;
+const float taupdt = 1.0;
+const float bgain = 1.0;
+const float wgain = 1.0; 
+const float ewgain = 1.0; 
+const float iwgain = 1.0;
+
+const float prn = 0.1;
 
 // main function
 int main() {
@@ -91,6 +98,7 @@ int main() {
     int* Hihjhi_ih = new int[H_hid * denHi_ih];
     float* trgpopact_ih = new float[N_hid];
     float* bwsup_ih = new float[N_hid];
+    float* bwsupinf_ih = new float[N_hid];
 
     float* Zj_ih = new float[N_hid];
     float* Zi_ih = new float[H_hid * denNi_ih];
@@ -121,6 +129,7 @@ int main() {
         sada_hid[i] = dis(gen);
         trgpopact_ih[i] = dis(gen);
         bwsup_ih[i] = dis(gen);
+        bwsupinf_ih[i] = dis(gen);
         Zj_ih[i] = dis(gen);
         Pj_ih[i] = dis(gen);
         Bj_ih[i] = dis(gen);
@@ -139,15 +148,23 @@ int main() {
     }
 
     for (int i = 0; i < H_hid * denHi_ih; ++i) {
-        Hihjhi_ih[i] = static_cast<int>(dis(gen) * std::numeric_limits<int>::max());
+        Hihjhi_ih[i] = i%2;
     }
 
     // Allocate memory on GPU
     float *d_lgi_hid, *d_bwsup_hid, *d_supinf_hid, *d_sup_hid, *d_act_hid, *d_rndPoisson_hid;
-    float *d_ada_hid, *d_sada_hid, *d_axoact_ih, *d_denact_ih, *d_trgpopact_ih, *d_bwsup_ih;
+    float *d_ada_hid, *d_sada_hid, *d_axoact_ih, *d_denact_ih, *d_trgpopact_ih, *d_bwsup_ih, *d_bwsupinf_ih;
     float *d_Zj_ih, *d_Zi_ih, *d_Pj_ih, *d_Pi_ih, *d_Pji_ih, *d_Bj_ih, *d_Wji_ih;
+    float *d_hmax, *d_hsum;
     uint32_t *d_pnoise_hid;
     int *d_Hihjhi_ih;
+
+    float *d_lgi_hid_opt, *d_bwsup_hid_opt, *d_supinf_hid_opt, *d_sup_hid_opt, *d_act_hid_opt, *d_rndPoisson_hid_opt;
+    float *d_ada_hid_opt, *d_sada_hid_opt, *d_axoact_ih_opt, *d_denact_ih_opt, *d_trgpopact_ih_opt, *d_bwsup_ih_opt, *d_bwsupinf_ih_opt;
+    float *d_Zj_ih_opt, *d_Zi_ih_opt, *d_Pj_ih_opt, *d_Pi_ih_opt, *d_Pji_ih_opt, *d_Bj_ih_opt, *d_Wji_ih_opt;
+    float *d_hmax_opt, *d_hsum_opt;
+    uint32_t *d_pnoise_hid_opt;
+    int *d_Hihjhi_ih_opt;
 
     //print allocate memory on GPU
     std::cout << "Allocate memory on GPU ..." << std::endl;
@@ -166,6 +183,7 @@ int main() {
     cudaMalloc((void**)&d_Hihjhi_ih, H_hid * denHi_ih * sizeof(int));
     cudaMalloc((void**)&d_trgpopact_ih, N_hid * sizeof(float));
     cudaMalloc((void**)&d_bwsup_ih, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_bwsupinf_ih, N_hid * sizeof(float));
     cudaMalloc((void**)&d_Zj_ih, N_hid * sizeof(float));
     cudaMalloc((void**)&d_Zi_ih, H_hid * denNi_ih * sizeof(float));
     cudaMalloc((void**)&d_Pj_ih, N_hid * sizeof(float));
@@ -173,6 +191,33 @@ int main() {
     cudaMalloc((void**)&d_Pji_ih, N_hid * denNi_ih * sizeof(float));
     cudaMalloc((void**)&d_Bj_ih, N_hid * sizeof(float));
     cudaMalloc((void**)&d_Wji_ih, N_hid * denNi_ih * sizeof(float));
+    cudaMalloc((void**)&d_hmax, H_hid * sizeof(float));
+    cudaMalloc((void**)&d_hsum, H_hid * sizeof(float));
+
+    cudaMalloc((void**)&d_lgi_hid_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_bwsup_hid_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_supinf_hid_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_sup_hid_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_act_hid_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_pnoise_hid_opt, N_hid * sizeof(uint32_t));
+    cudaMalloc((void**)&d_rndPoisson_hid_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_ada_hid_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_sada_hid_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_axoact_ih_opt, N_in * sizeof(float));
+    cudaMalloc((void**)&d_denact_ih_opt, H_hid * denNi_ih * sizeof(float));
+    cudaMalloc((void**)&d_Hihjhi_ih_opt, H_hid * denHi_ih * sizeof(int));
+    cudaMalloc((void**)&d_trgpopact_ih_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_bwsup_ih_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_bwsupinf_ih_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_Zj_ih_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_Zi_ih_opt, H_hid * denNi_ih * sizeof(float));
+    cudaMalloc((void**)&d_Pj_ih_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_Pi_ih_opt, H_hid * denNi_ih * sizeof(float));
+    cudaMalloc((void**)&d_Pji_ih_opt, N_hid * denNi_ih * sizeof(float));
+    cudaMalloc((void**)&d_Bj_ih_opt, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_Wji_ih_opt, N_hid * denNi_ih * sizeof(float));
+    cudaMalloc((void**)&d_hmax_opt, H_hid * sizeof(float));
+    cudaMalloc((void**)&d_hsum_opt, H_hid * sizeof(float));
 
     CUDA_CHECK_ERROR_COLLECTIVE();
 
@@ -193,6 +238,7 @@ int main() {
     cudaMemcpy(d_Hihjhi_ih, Hihjhi_ih, H_hid * denHi_ih * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(d_trgpopact_ih, trgpopact_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_bwsup_ih, bwsup_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_bwsupinf_ih, bwsupinf_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_Zj_ih, Zj_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_Zi_ih, Zi_ih, H_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_Pj_ih, Pj_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
@@ -201,10 +247,89 @@ int main() {
     cudaMemcpy(d_Bj_ih, Bj_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_Wji_ih, Wji_ih, N_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
 
+    cudaMemcpy(d_lgi_hid_opt, lgi_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_bwsup_hid_opt, bwsup_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_supinf_hid_opt, supinf_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_sup_hid_opt, sup_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_act_hid_opt, act_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_pnoise_hid_opt, pnoise_hid, N_hid * sizeof(uint32_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_rndPoisson_hid_opt, rndPoisson_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ada_hid_opt, ada_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_sada_hid_opt, sada_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_axoact_ih_opt, axoact_ih, N_in * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_denact_ih_opt, denact_ih, H_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Hihjhi_ih_opt, Hihjhi_ih, H_hid * denHi_ih * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_trgpopact_ih_opt, trgpopact_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_bwsup_ih_opt, bwsup_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_bwsupinf_ih_opt, bwsupinf_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Zj_ih_opt, Zj_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Zi_ih_opt, Zi_ih, H_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Pj_ih_opt, Pj_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Pi_ih_opt, Pi_ih, H_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Pji_ih_opt, Pji_ih, N_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Bj_ih_opt, Bj_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Wji_ih_opt, Wji_ih, N_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
+
     CUDA_CHECK_ERROR_COLLECTIVE();
 
-    std::cout << "Run kernel ..." << std::endl;
+    std::cout << "Run kernel on Population..." << std::endl;
+    
+    updsup_cu(N_hid, d_lgi_hid, d_bwsup_hid, d_sup_hid, d_supinf_hid, d_act_hid, 
+              d_ada_hid, d_sada_hid, d_pnoise_hid, taumdt, igain, bwgain, adgain, tauadt, sadgain, 
+                tausadt, nampl, nfreq);
 
+    updsup_cu_optimized(N_hid, d_lgi_hid_opt, d_bwsup_hid_opt, d_sup_hid_opt, d_supinf_hid_opt, d_act_hid_opt, 
+              d_ada_hid_opt, d_sada_hid_opt, d_pnoise_hid_opt, taumdt, igain, bwgain, adgain, tauadt, sadgain, 
+                tausadt, nampl, nfreq);
+
+    updact_cu(H_hid, M_hid, d_sup_hid, d_act_hid, again_hls, d_hmax, d_hsum);
+
+    updact_cu_optimized(H_hid, M_hid, d_sup_hid_opt, d_act_hid_opt, again_hls, d_hmax_opt, d_hsum_opt);
+
+    std::cout << "Run kernel on Projection..." << std::endl;
+    upddenact_cu(d_axoact_ih, d_Hihjhi_ih, H_hid, denHi_ih, M_in, d_denact_ih);
+
+    upddenact_cu_optimized(d_axoact_ih_opt, d_Hihjhi_ih_opt, H_hid, denHi_ih, M_in, d_denact_ih_opt);
+
+    updtraces_cu(d_denact_ih, d_trgpopact_ih, prn, H_hid, N_hid, M_hid, denNi_ih, fgain, eps_hls, 
+                tauzidt, tauzjdt, taupdt, d_Zj_ih, d_Zi_ih, d_Pj_ih, d_Pi_ih, d_Pji_ih);
+    
+    updtraces_cu_optimized(d_denact_ih_opt, d_trgpopact_ih_opt, prn, H_hid, N_hid, M_hid, denNi_ih, fgain, eps_hls,
+                tauzidt, tauzjdt, taupdt, d_Zj_ih_opt, d_Zi_ih_opt, d_Pj_ih_opt, d_Pi_ih_opt, d_Pji_ih_opt);
+
+    updbw_cu(N_hid, M_hid, denHi_ih, denNi_ih, M_in, d_Pj_ih, d_Pi_ih, d_Pji_ih, d_Bj_ih, d_Wji_ih,
+            eps_hls, bgain, wgain, ewgain, iwgain);
+    
+    updbw_cu_optimized(N_hid, M_hid, denHi_ih, denNi_ih, M_in, d_Pj_ih_opt, d_Pi_ih_opt, d_Pji_ih_opt, d_Bj_ih_opt, d_Wji_ih_opt,
+            eps_hls, bgain, wgain, ewgain, iwgain);
+
+    updbwsup_cu(d_Zi_ih, d_Bj_ih, d_Wji_ih, H_hid, M_hid, denNi_ih, tauzidt, d_bwsupinf_ih, d_bwsup_ih);
+
+    updbwsup_cu_optimized(d_Zi_ih_opt, d_Bj_ih_opt, d_Wji_ih_opt, H_hid, M_hid, denNi_ih, tauzidt, d_bwsupinf_ih_opt, d_bwsup_ih_opt);
+
+    // Copy data from device to host
+    cudaMemcpy(lgi_hid, d_lgi_hid, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(bwsup_hid, d_bwsup_hid, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(supinf_hid, d_supinf_hid, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(sup_hid, d_sup_hid, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(act_hid, d_act_hid, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(pnoise_hid, d_pnoise_hid, N_hid * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(rndPoisson_hid, d_rndPoisson_hid, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(ada_hid, d_ada_hid, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(sada_hid, d_sada_hid, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(axoact_ih, d_axoact_ih, N_in * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(denact_ih, d_denact_ih, H_hid * denNi_ih * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Hihjhi_ih, d_Hihjhi_ih, H_hid * denHi_ih * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(trgpopact_ih, d_trgpopact_ih, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(bwsup_ih, d_bwsup_ih, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(bwsupinf_ih, d_bwsupinf_ih, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Zj_ih, d_Zj_ih, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Zi_ih, d_Zi_ih, H_hid * denNi_ih * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Pj_ih, d_Pj_ih, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Pi_ih, d_Pi_ih, H_hid * denNi_ih * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Pji_ih, d_Pji_ih, N_hid * denNi_ih * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Bj_ih, d_Bj_ih, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Wji_ih, d_Wji_ih, N_hid * denNi_ih * sizeof(float), cudaMemcpyDeviceToHost);
 
     std::cout << "Free memory on Host ..." << std::endl;
     // Deallocate host memory
@@ -222,6 +347,7 @@ int main() {
     delete[] Hihjhi_ih;
     delete[] trgpopact_ih;
     delete[] bwsup_ih;
+    delete[] bwsupinf_ih;
     delete[] Zj_ih;
     delete[] Zi_ih;
     delete[] Pj_ih;
@@ -232,30 +358,58 @@ int main() {
 
     std::cout << "Free memory on GPU ..." << std::endl;
 
-    // Deallocate GPU memory
-    cudaFree(d_lgi_hid);
-    cudaFree(d_bwsup_hid);
-    cudaFree(d_supinf_hid);
-    cudaFree(d_sup_hid);
-    cudaFree(d_act_hid);
-    cudaFree(d_pnoise_hid);
-    cudaFree(d_rndPoisson_hid);
-    cudaFree(d_ada_hid);
-    cudaFree(d_sada_hid);
-    cudaFree(d_axoact_ih);
-    cudaFree(d_denact_ih);
-    cudaFree(d_Hihjhi_ih);
-    cudaFree(d_trgpopact_ih);
-    cudaFree(d_bwsup_ih);
-    cudaFree(d_Zj_ih);
-    cudaFree(d_Zi_ih);
-    cudaFree(d_Pj_ih);
-    cudaFree(d_Pi_ih);
-    cudaFree(d_Pji_ih);
-    cudaFree(d_Bj_ih);
-    cudaFree(d_Wji_ih);
+    cudaDeviceSynchronize();
 
-    CUDA_CHECK_ERROR_COLLECTIVE();
+    // Deallocate GPU memory
+    CUDA_CHECK_ERROR(cudaFree(d_lgi_hid));
+    CUDA_CHECK_ERROR(cudaFree(d_bwsup_hid));
+    CUDA_CHECK_ERROR(cudaFree(d_supinf_hid));
+    CUDA_CHECK_ERROR(cudaFree(d_sup_hid));
+    CUDA_CHECK_ERROR(cudaFree(d_act_hid));
+    CUDA_CHECK_ERROR(cudaFree(d_pnoise_hid));
+    CUDA_CHECK_ERROR(cudaFree(d_rndPoisson_hid));
+    CUDA_CHECK_ERROR(cudaFree(d_ada_hid));
+    CUDA_CHECK_ERROR(cudaFree(d_sada_hid));
+    CUDA_CHECK_ERROR(cudaFree(d_axoact_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_denact_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_Hihjhi_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_trgpopact_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_bwsup_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_bwsupinf_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_Zj_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_Zi_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_Pj_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_Pi_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_Pji_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_Bj_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_Wji_ih));
+    CUDA_CHECK_ERROR(cudaFree(d_hmax));
+    CUDA_CHECK_ERROR(cudaFree(d_hsum));    
+
+    CUDA_CHECK_ERROR(cudaFree(d_lgi_hid_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_bwsup_hid_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_supinf_hid_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_sup_hid_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_act_hid_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_pnoise_hid_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_rndPoisson_hid_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_ada_hid_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_sada_hid_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_axoact_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_denact_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_Hihjhi_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_trgpopact_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_bwsup_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_bwsupinf_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_Zj_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_Zi_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_Pj_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_Pi_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_Pji_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_Bj_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_Wji_ih_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_hmax_opt));
+    CUDA_CHECK_ERROR(cudaFree(d_hsum_opt));
 
     return 0;
 }

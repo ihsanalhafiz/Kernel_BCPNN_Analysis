@@ -7,7 +7,7 @@ CUDA_ARCH := -arch=sm_75
 
 # Compiler flags
 CXXFLAGS := -std=c++17
-NVCCFLAGS := $(CUDA_ARCH) -std=c++17
+NVCCFLAGS := $(CUDA_ARCH) -std=c++17 -rdc=true -lcudadevrt -lineinfo -G
 
 # Debug and Optimization flags
 DEBUG_FLAGS := -g 
@@ -50,7 +50,7 @@ debug: $(TARGET)
 # Create output binary from object files
 $(TARGET): $(MAIN_OBJECT) $(CPP_OBJECTS) $(CU_OBJECTS)
 	@mkdir -p $(BIN_DIR)
-	$(NVCC) $(MAIN_OBJECT) $(CPP_OBJECTS) $(CU_OBJECTS) $(LIBS) -o $@
+	$(NVCC) $(MAIN_OBJECT) $(CPP_OBJECTS) $(CU_OBJECTS) $(LIBS) $(NVCCFLAGS) -o $@
 
 # Rule for compiling main.cpp (in the main directory)
 $(OBJ_DIR)/main.o: $(MAIN_CPP)

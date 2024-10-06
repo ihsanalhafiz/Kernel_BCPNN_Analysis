@@ -12,6 +12,9 @@
 #include <curand_kernel.h>
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
+
+#include "pop.cuh"
+#include "prj.cuh"
 // Error checking macro
 #define CUDA_CHECK_ERROR(call) {                                      \
     cudaError_t err = call;                                           \
@@ -40,4 +43,23 @@
         exit(EXIT_FAILURE); \
     } \
 }
+
+void updsup_cu(int N, float *lgi, float *bwsup, float *sup, float *supinf, float *act,
+               float *ada, float *sada, uint *pnoise,
+               float taumdt, float igain, float bwgain, float adgain, float tauadt,
+               float sadgain, float tausadt, float nampl, float nfreq);
+void updact_cu(int H, int M, float *sup, float *act, float again,
+                float *hmax, float *hsum);
+
+void upddenact_cu(float *axoact, int *Hihjhi, int Hj, int denHi, int Mi, float *denact);
+void updtraces_cu(float *denact, float *trgact, float prn,
+                  int Hj, int Nj, int Mj, int denNi,
+                  float fgain, float eps, float tauzidt, float tauzjdt, float taupdt,
+                  float *Zj, float *Zi, float *Pj, float *Pi, float *Pji);
+void updbw_cu(int Nj, int Mj, int denHi, int denNi, int Mi,
+              float *Pj, float *Pi, float *Pji, float *Bj, float *Wji,
+              float eps, float bgain, float wgain, float ewgain, float iwgain);
+void updbwsup_cu(float *Zi, float *Bj, float *Wji, int Hj, int Mj, int denNi, float tauzidt,
+                 float *bwsupinf, float *bwsup);
+
 #endif // __KernelGlobal_included
