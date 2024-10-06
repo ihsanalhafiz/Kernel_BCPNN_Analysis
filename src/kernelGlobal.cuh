@@ -33,4 +33,11 @@
         }                                                                  \
     }
 
+#define CUDA_CHECK_ERROR_COLLECTIVE() { \
+    cudaError_t err = cudaGetLastError(); \
+    if (err != cudaSuccess) { \
+        std::cerr << "CUDA Error: " << cudaGetErrorString(err) << " at line " << __LINE__ << std::endl; \
+        exit(EXIT_FAILURE); \
+    } \
+}
 #endif // __KernelGlobal_included
