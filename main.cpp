@@ -21,8 +21,8 @@ const int M_in = 2;
 const int N_in = H_in * M_in;
 
 // Layer Population Hidden
-const int H_hid = 32;
-const int M_hid = 128;
+const int H_hid = 256;
+const int M_hid = 512;
 const int N_hid = H_hid * M_hid;
 const float M_hid_inv = 1.0f/M_hid;
 const int log2M_hid = 7;
@@ -400,6 +400,65 @@ int main() {
     }
     std::cout << "Check correctness of updact kernel ..." << std::endl;
     std::cout << "Difference between act_hid and act_hid_opt: " << diff_act_hid << std::endl;
+
+    // Compare variable denact_ih and denact_ih_opt for checking correctness upddenact kernel
+    float diff_denact_ih = 0.0;
+    for (int i = 0; i < H_hid * denNi_ih; ++i) {
+        diff_denact_ih += std::abs(denact_ih[i] - denact_ih_opt[i]);
+    }
+    std::cout << "Check correctness of upddenact kernel ..." << std::endl;
+    std::cout << "Difference between denact_ih and denact_ih_opt: " << diff_denact_ih << std::endl;
+
+    // Compare variable Zj_ih and Zj_ih_opt for checking correctness updtraces kernel
+    // Compare variable Zi_ih and Zi_ih_opt for checking correctness updtraces kernel
+    // Compare variable Pj_ih and Pj_ih_opt for checking correctness updtraces kernel
+    // Compare variable Pi_ih and Pi_ih_opt for checking correctness updtraces kernel
+    // Compare variable Pji_ih and Pji_ih_opt for checking correctness updtraces kernel
+    float diff_Zj_ih = 0.0;
+    float diff_Zi_ih = 0.0;
+    float diff_Pj_ih = 0.0;
+    float diff_Pi_ih = 0.0;
+    float diff_Pji_ih = 0.0;
+    for (int i = 0; i < N_hid; ++i) {
+        diff_Zj_ih += std::abs(Zj_ih[i] - Zj_ih_opt[i]);
+        diff_Pj_ih += std::abs(Pj_ih[i] - Pj_ih_opt[i]);
+    }
+    for (int i = 0; i < H_hid * denNi_ih; ++i) {
+        diff_Zi_ih += std::abs(Zi_ih[i] - Zi_ih_opt[i]);
+        diff_Pi_ih += std::abs(Pi_ih[i] - Pi_ih_opt[i]);
+    }
+    for (int i = 0; i < N_hid * denNi_ih; ++i) {
+        diff_Pji_ih += std::abs(Pji_ih[i] - Pji_ih_opt[i]);
+    }
+    std::cout << "Check correctness of updtraces kernel ..." << std::endl;
+    std::cout << "Difference between Zj_ih and Zj_ih_opt: " << diff_Zj_ih << std::endl;
+    std::cout << "Difference between Zi_ih and Zi_ih_opt: " << diff_Zi_ih << std::endl;
+    std::cout << "Difference between Pj_ih and Pj_ih_opt: " << diff_Pj_ih << std::endl;
+    std::cout << "Difference between Pi_ih and Pi_ih_opt: " << diff_Pi_ih << std::endl;
+    std::cout << "Difference between Pji_ih and Pji_ih_opt: " << diff_Pji_ih << std::endl;
+
+    // Compare variable Bj_ih and Bj_ih_opt for checking correctness updbw kernel
+    // Compare variable Wji_ih and Wji_ih_opt for checking correctness updbw kernel
+    float diff_Bj_ih = 0.0;
+    float diff_Wji_ih = 0.0;
+    for (int i = 0; i < N_hid; ++i) {
+        diff_Bj_ih += std::abs(Bj_ih[i] - Bj_ih_opt[i]);
+    }
+    for (int i = 0; i < N_hid * denNi_ih; ++i) {
+        diff_Wji_ih += std::abs(Wji_ih[i] - Wji_ih_opt[i]);
+    }
+    std::cout << "Check correctness of updbw kernel ..." << std::endl;
+    std::cout << "Difference between Bj_ih and Bj_ih_opt: " << diff_Bj_ih << std::endl;
+    std::cout << "Difference between Wji_ih and Wji_ih_opt: " << diff_Wji_ih << std::endl;
+
+    // Compare variable bwsup_ih and bwsup_ih_opt for checking correctness updbwsup kernel
+    float diff_bwsup_ih = 0.0;
+    for (int i = 0; i < N_hid; ++i) {
+        diff_bwsup_ih += std::abs(bwsup_ih[i] - bwsup_ih_opt[i]);
+    }
+    std::cout << "Check correctness of updbwsup kernel ..." << std::endl;
+    std::cout << "Difference between bwsup_ih and bwsup_ih_opt: " << diff_bwsup_ih << std::endl;
+
 
     std::cout << "Free memory on Host ..." << std::endl;
     // Deallocate host memory
