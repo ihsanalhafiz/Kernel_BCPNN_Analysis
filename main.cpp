@@ -8,6 +8,7 @@
 #include <algorithm> // shuffle
 #include <iostream>
 #include <limits>
+#include "kernelGlobal.cuh"
 
 const int NumberPop = 3;
 const float eps_hls = 1e-8;
@@ -104,6 +105,9 @@ int main() {
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, 1.0);
 
+    // Print initilize status
+    std::cout << "Initialize data fot testing ..." << std::endl;
+
     // Assign random values to arrays
     for (int i = 0; i < N_hid; ++i) {
         lgi_hid[i] = dis(gen);
@@ -138,6 +142,120 @@ int main() {
         Hihjhi_ih[i] = static_cast<int>(dis(gen) * std::numeric_limits<int>::max());
     }
 
+    // Allocate memory on GPU
+    float *d_lgi_hid, *d_bwsup_hid, *d_supinf_hid, *d_sup_hid, *d_act_hid, *d_rndPoisson_hid;
+    float *d_ada_hid, *d_sada_hid, *d_axoact_ih, *d_denact_ih, *d_trgpopact_ih, *d_bwsup_ih;
+    float *d_Zj_ih, *d_Zi_ih, *d_Pj_ih, *d_Pi_ih, *d_Pji_ih, *d_Bj_ih, *d_Wji_ih;
+    uint32_t *d_pnoise_hid;
+    int *d_Hihjhi_ih;
+
+    //print allocate memory on GPU
+    std::cout << "Allocate memory on GPU ..." << std::endl;
+
+    cudaMalloc((void**)&d_lgi_hid, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_bwsup_hid, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_supinf_hid, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_sup_hid, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_act_hid, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_pnoise_hid, N_hid * sizeof(uint32_t));
+    cudaMalloc((void**)&d_rndPoisson_hid, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_ada_hid, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_sada_hid, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_axoact_ih, N_in * sizeof(float));
+    cudaMalloc((void**)&d_denact_ih, H_hid * denNi_ih * sizeof(float));
+    cudaMalloc((void**)&d_Hihjhi_ih, H_hid * denHi_ih * sizeof(int));
+    cudaMalloc((void**)&d_trgpopact_ih, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_bwsup_ih, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_Zj_ih, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_Zi_ih, H_hid * denNi_ih * sizeof(float));
+    cudaMalloc((void**)&d_Pj_ih, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_Pi_ih, H_hid * denNi_ih * sizeof(float));
+    cudaMalloc((void**)&d_Pji_ih, N_hid * denNi_ih * sizeof(float));
+    cudaMalloc((void**)&d_Bj_ih, N_hid * sizeof(float));
+    cudaMalloc((void**)&d_Wji_ih, N_hid * denNi_ih * sizeof(float));
+
+    CUDA_CHECK_ERROR_COLLECTIVE();
+
+    std::cout << "Copy data from host to device ..." << std::endl;
+
+    // Copy data from host to device
+    cudaMemcpy(d_lgi_hid, lgi_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_bwsup_hid, bwsup_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_supinf_hid, supinf_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_sup_hid, sup_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_act_hid, act_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_pnoise_hid, pnoise_hid, N_hid * sizeof(uint32_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_rndPoisson_hid, rndPoisson_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ada_hid, ada_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_sada_hid, sada_hid, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_axoact_ih, axoact_ih, N_in * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_denact_ih, denact_ih, H_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Hihjhi_ih, Hihjhi_ih, H_hid * denHi_ih * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_trgpopact_ih, trgpopact_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_bwsup_ih, bwsup_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Zj_ih, Zj_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Zi_ih, Zi_ih, H_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Pj_ih, Pj_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Pi_ih, Pi_ih, H_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Pji_ih, Pji_ih, N_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Bj_ih, Bj_ih, N_hid * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_Wji_ih, Wji_ih, N_hid * denNi_ih * sizeof(float), cudaMemcpyHostToDevice);
+
+    CUDA_CHECK_ERROR_COLLECTIVE();
+
+    std::cout << "Run kernel ..." << std::endl;
+
+
+    std::cout << "Free memory on Host ..." << std::endl;
+    // Deallocate host memory
+    delete[] lgi_hid;
+    delete[] bwsup_hid;
+    delete[] supinf_hid;
+    delete[] sup_hid;
+    delete[] act_hid;
+    delete[] pnoise_hid;
+    delete[] rndPoisson_hid;
+    delete[] ada_hid;
+    delete[] sada_hid;
+    delete[] axoact_ih;
+    delete[] denact_ih;
+    delete[] Hihjhi_ih;
+    delete[] trgpopact_ih;
+    delete[] bwsup_ih;
+    delete[] Zj_ih;
+    delete[] Zi_ih;
+    delete[] Pj_ih;
+    delete[] Pi_ih;
+    delete[] Pji_ih;
+    delete[] Bj_ih;
+    delete[] Wji_ih;
+
+    std::cout << "Free memory on GPU ..." << std::endl;
+
+    // Deallocate GPU memory
+    cudaFree(d_lgi_hid);
+    cudaFree(d_bwsup_hid);
+    cudaFree(d_supinf_hid);
+    cudaFree(d_sup_hid);
+    cudaFree(d_act_hid);
+    cudaFree(d_pnoise_hid);
+    cudaFree(d_rndPoisson_hid);
+    cudaFree(d_ada_hid);
+    cudaFree(d_sada_hid);
+    cudaFree(d_axoact_ih);
+    cudaFree(d_denact_ih);
+    cudaFree(d_Hihjhi_ih);
+    cudaFree(d_trgpopact_ih);
+    cudaFree(d_bwsup_ih);
+    cudaFree(d_Zj_ih);
+    cudaFree(d_Zi_ih);
+    cudaFree(d_Pj_ih);
+    cudaFree(d_Pi_ih);
+    cudaFree(d_Pji_ih);
+    cudaFree(d_Bj_ih);
+    cudaFree(d_Wji_ih);
+
+    CUDA_CHECK_ERROR_COLLECTIVE();
 
     return 0;
 }
