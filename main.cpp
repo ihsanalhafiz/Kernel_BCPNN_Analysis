@@ -108,6 +108,33 @@ int main() {
     float* Bj_ih = new float[N_hid];
     float* Wji_ih = new float[N_hid * denNi_ih];
 
+    // initialize same arrays for optimized version
+    float* lgi_hid_opt = new float[N_hid];
+    float* bwsup_hid_opt = new float[N_hid];
+    float* supinf_hid_opt = new float[N_hid];
+    float* sup_hid_opt = new float[N_hid];
+    float* act_hid_opt = new float[N_hid];
+    uint32_t* pnoise_hid_opt = new uint32_t[N_hid];
+    float* rndPoisson_hid_opt = new float[N_hid];
+
+    float* ada_hid_opt = new float[N_hid];
+    float* sada_hid_opt = new float[N_hid];
+
+    float* axoact_ih_opt = new float[N_in];
+    float* denact_ih_opt = new float[H_hid * denNi_ih];
+    int* Hihjhi_ih_opt = new int[H_hid * denHi_ih];
+    float* trgpopact_ih_opt = new float[N_hid];
+    float* bwsup_ih_opt = new float[N_hid];
+    float* bwsupinf_ih_opt = new float[N_hid];
+
+    float* Zj_ih_opt = new float[N_hid];
+    float* Zi_ih_opt = new float[H_hid * denNi_ih];
+    float* Pj_ih_opt = new float[N_hid];
+    float* Pi_ih_opt = new float[H_hid * denNi_ih];
+    float* Pji_ih_opt = new float[N_hid * denNi_ih];
+    float* Bj_ih_opt = new float[N_hid];
+    float* Wji_ih_opt = new float[N_hid * denNi_ih];
+
     // Seed for random number generation
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -331,6 +358,49 @@ int main() {
     cudaMemcpy(Bj_ih, d_Bj_ih, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
     cudaMemcpy(Wji_ih, d_Wji_ih, N_hid * denNi_ih * sizeof(float), cudaMemcpyDeviceToHost);
 
+    // Copy data from device to host for optimized version
+    cudaMemcpy(lgi_hid_opt, d_lgi_hid_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(bwsup_hid_opt, d_bwsup_hid_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(supinf_hid_opt, d_supinf_hid_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(sup_hid_opt, d_sup_hid_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(act_hid_opt, d_act_hid_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(pnoise_hid_opt, d_pnoise_hid_opt, N_hid * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(rndPoisson_hid_opt, d_rndPoisson_hid_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(ada_hid_opt, d_ada_hid_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(sada_hid_opt, d_sada_hid_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(axoact_ih_opt, d_axoact_ih_opt, N_in * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(denact_ih_opt, d_denact_ih_opt, H_hid * denNi_ih * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Hihjhi_ih_opt, d_Hihjhi_ih_opt, H_hid * denHi_ih * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(trgpopact_ih_opt, d_trgpopact_ih_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(bwsup_ih_opt, d_bwsup_ih_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(bwsupinf_ih_opt, d_bwsupinf_ih_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Zj_ih_opt, d_Zj_ih_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Zi_ih_opt, d_Zi_ih_opt, H_hid * denNi_ih * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Pj_ih_opt, d_Pj_ih_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Pi_ih_opt, d_Pi_ih_opt, H_hid * denNi_ih * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Pji_ih_opt, d_Pji_ih_opt, N_hid * denNi_ih * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Bj_ih_opt, d_Bj_ih_opt, N_hid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(Wji_ih_opt, d_Wji_ih_opt, N_hid * denNi_ih * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // Check for errors
+    CUDA_CHECK_ERROR_COLLECTIVE();
+
+    // Compare variable sup_hid and sup_hid_opt for checking correctness updsup kernel
+    float diff_sup_hid = 0.0;
+    for (int i = 0; i < N_hid; ++i) {
+        diff_sup_hid += std::abs(sup_hid[i] - sup_hid_opt[i]);
+    }
+    std::cout << "Check correctness of updsup kernel ..." << std::endl;
+    std::cout << "Difference between sup_hid and sup_hid_opt: " << diff_sup_hid << std::endl;
+
+    // Compare variable act_hid and act_hid_opt for checking correctness updact kernel
+    float diff_act_hid = 0.0;
+    for (int i = 0; i < N_hid; ++i) {
+        diff_act_hid += std::abs(act_hid[i] - act_hid_opt[i]);
+    }
+    std::cout << "Check correctness of updact kernel ..." << std::endl;
+    std::cout << "Difference between act_hid and act_hid_opt: " << diff_act_hid << std::endl;
+
     std::cout << "Free memory on Host ..." << std::endl;
     // Deallocate host memory
     delete[] lgi_hid;
@@ -355,6 +425,29 @@ int main() {
     delete[] Pji_ih;
     delete[] Bj_ih;
     delete[] Wji_ih;
+
+    delete[] lgi_hid_opt;
+    delete[] bwsup_hid_opt;
+    delete[] supinf_hid_opt;
+    delete[] sup_hid_opt;
+    delete[] act_hid_opt;
+    delete[] pnoise_hid_opt;
+    delete[] rndPoisson_hid_opt;
+    delete[] ada_hid_opt;
+    delete[] sada_hid_opt;
+    delete[] axoact_ih_opt;
+    delete[] denact_ih_opt;
+    delete[] Hihjhi_ih_opt;
+    delete[] trgpopact_ih_opt;
+    delete[] bwsup_ih_opt;
+    delete[] bwsupinf_ih_opt;
+    delete[] Zj_ih_opt;
+    delete[] Zi_ih_opt;
+    delete[] Pj_ih_opt;
+    delete[] Pi_ih_opt;
+    delete[] Pji_ih_opt;
+    delete[] Bj_ih_opt;
+    delete[] Wji_ih_opt;
 
     std::cout << "Free memory on GPU ..." << std::endl;
 
