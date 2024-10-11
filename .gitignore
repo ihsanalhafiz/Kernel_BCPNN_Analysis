@@ -7,3 +7,17 @@ Data/mnist/mnist_teimg.bin
 Data/mnist/mnist_telbl.bin
 Data/mnist/mnist_trimg.bin
 Data/mnist/mnist_trlbl.bin
+BCPNN_full/hidact.log
+BCPNN_full/hupji.bin
+BCPNN_full/huwji.bin
+BCPNN_full/ihc.bin
+BCPNN_full/ihhi.bin
+BCPNN_full/ihmisc.bin
+BCPNN_full/ihpji.bin
+BCPNN_full/ihwji.bin
+BCPNN_full/inact.log
+BCPNN_full/utact.log
+H32_M128_full_1.ncu-rep
+H32_M128_full_2.ncu-rep
+H512_M1024_full_1.ncu-rep
+H512_M1024_full_2.ncu-rep

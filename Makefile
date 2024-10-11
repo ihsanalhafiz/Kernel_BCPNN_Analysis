@@ -7,7 +7,7 @@ CUDA_ARCH := -arch=sm_75
 
 # Compiler flags
 CXXFLAGS := -std=c++17
-NVCCFLAGS := $(CUDA_ARCH) -std=c++17 -rdc=true -lcudadevrt -lineinfo -G
+NVCCFLAGS := $(CUDA_ARCH) -std=c++17 -rdc=true -lcudadevrt -lineinfo
 
 # Debug and Optimization flags
 DEBUG_FLAGS := -g 

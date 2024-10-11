@@ -6,51 +6,6 @@
 #include <math_constants.h>
 #include "prj.cuh"
 
-__global__
-void upddenact_kernel_optimized(const float* __restrict__ axoact,
-                                const int* __restrict__ Hihjhi,
-                                const int Hj, const int denHi, const int Mi,
-                                float* __restrict__ denact) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int total_elements = Hj * denHi * Mi;
-
-    if (idx >= total_elements)
-        return;
-
-    // Compute h and mi from the linear index
-    int h = idx / Mi;
-    int mi = idx % Mi;
-
-    // Compute hj and dhi from h
-    int hj = h / denHi;
-    int dhi = h % denHi;
-
-    // Get hi using Hihjhi array
-    int hi = Hihjhi[hj * denHi + dhi];
-
-    // Calculate indices for axoact and denact arrays
-    int axoact_idx = hi * Mi + mi;
-    int denact_idx = hj * denHi * Mi + dhi * Mi + mi;
-
-    // Perform the data copy
-    denact[denact_idx] = axoact[axoact_idx];
-}
-
-void upddenact_cu_optimized(const float* axoact, const int* Hihjhi,
-                  int Hj, int denHi, int Mi, float* denact) {
-    int total_elements = Hj * denHi * Mi;
-    int blockSize = 128;  // Adjust based on your GPU's characteristics
-    int numBlocks = (total_elements + blockSize - 1) / blockSize;
-
-    upddenact_kernel_optimized<<<numBlocks, blockSize>>>(
-        axoact, Hihjhi, Hj, denHi, Mi, denact);
-
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        fprintf(stderr, "CUDA error in upddenact_cu: %s\n", cudaGetErrorString(err));
-    }
-    cudaDeviceSynchronize();
-}
 
 __global__
 void updtrcjzp_kernel_optimized(const float* __restrict__ Xj,
@@ -256,7 +211,7 @@ void updbw_cu_optimized(int Nj, int Mj, int denHi, int denNi, int Mi,
               float ewgain,
               float iwgain) {
     // Compute Bj[nj] separately to avoid redundant computations
-    int blockSizeBj = 128;
+    int blockSizeBj = 256;
     int numBlocksBj = (Nj + blockSizeBj - 1) / blockSizeBj;
 
     compute_Bj_kernel<<<numBlocksBj, blockSizeBj>>>(
@@ -272,7 +227,7 @@ void updbw_cu_optimized(int Nj, int Mj, int denHi, int denNi, int Mi,
 
     // Launch the optimized BCPupdbw_kernel
     int total_elements = Nj * denNi;
-    int blockSize = 256;  // Adjust based on GPU occupancy
+    int blockSize = 128;  // Adjust based on GPU occupancy
     int numBlocks = (total_elements + blockSize - 1) / blockSize;
 
     BCPupdbw_kernel_optimized<<<numBlocks, blockSize>>>(
@@ -365,7 +320,7 @@ void updbwsup_cu_optimized(const float* __restrict__ Zi,
     free(h_yarray);
 
     // Launch the kernel to update bwsup using the GPU
-    int blockSize = 128;  // Adjust for better occupancy
+    int blockSize = 256;  // Adjust for better occupancy
     int numBlocksj = (Nj + blockSize - 1) / blockSize;
     updbwsup_kernel_optimized<<<numBlocksj, blockSize>>>(
         bwsupinf, Nj, tauzidt, bwsup);

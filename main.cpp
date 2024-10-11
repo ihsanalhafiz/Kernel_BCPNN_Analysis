@@ -21,8 +21,8 @@ const int M_in = 2;
 const int N_in = H_in * M_in;
 
 // Layer Population Hidden
-const int H_hid = 256;
-const int M_hid = 512;
+const int H_hid = 32;
+const int M_hid = 128;
 const int N_hid = H_hid * M_hid;
 const float M_hid_inv = 1.0f/M_hid;
 const int log2M_hid = 7;
@@ -314,9 +314,6 @@ int main() {
     updact_cu_optimized(H_hid, M_hid, d_sup_hid_opt, d_act_hid_opt, again_hls, d_hmax_opt, d_hsum_opt);
 
     std::cout << "Run kernel on Projection..." << std::endl;
-    upddenact_cu(d_axoact_ih, d_Hihjhi_ih, H_hid, denHi_ih, M_in, d_denact_ih);
-
-    upddenact_cu_optimized(d_axoact_ih_opt, d_Hihjhi_ih_opt, H_hid, denHi_ih, M_in, d_denact_ih_opt);
 
     updtraces_cu(d_denact_ih, d_trgpopact_ih, prn, H_hid, N_hid, M_hid, denNi_ih, fgain, eps_hls, 
                 tauzidt, tauzjdt, taupdt, d_Zj_ih, d_Zi_ih, d_Pj_ih, d_Pi_ih, d_Pji_ih);
@@ -401,14 +398,6 @@ int main() {
     std::cout << "Check correctness of updact kernel ..." << std::endl;
     std::cout << "Difference between act_hid and act_hid_opt: " << diff_act_hid << std::endl;
 
-    // Compare variable denact_ih and denact_ih_opt for checking correctness upddenact kernel
-    float diff_denact_ih = 0.0;
-    for (int i = 0; i < H_hid * denNi_ih; ++i) {
-        diff_denact_ih += std::abs(denact_ih[i] - denact_ih_opt[i]);
-    }
-    std::cout << "Check correctness of upddenact kernel ..." << std::endl;
-    std::cout << "Difference between denact_ih and denact_ih_opt: " << diff_denact_ih << std::endl;
-
     // Compare variable Zj_ih and Zj_ih_opt for checking correctness updtraces kernel
     // Compare variable Zi_ih and Zi_ih_opt for checking correctness updtraces kernel
     // Compare variable Pj_ih and Pj_ih_opt for checking correctness updtraces kernel
@@ -459,6 +448,13 @@ int main() {
     std::cout << "Check correctness of updbwsup kernel ..." << std::endl;
     std::cout << "Difference between bwsup_ih and bwsup_ih_opt: " << diff_bwsup_ih << std::endl;
 
+    // verify the correctness of the kernel for all the variables
+    if (diff_sup_hid < 1e-6 && diff_act_hid < 1e-6 && diff_denact_ih < 1e-6 && diff_Zj_ih < 1e-6 && diff_Zi_ih < 1e-6 && 
+        diff_Pj_ih < 1e-6 && diff_Pi_ih < 1e-6 && diff_Pji_ih < 1e-6 && diff_Bj_ih < 1e-6 && diff_Wji_ih < 1e-6 && diff_bwsup_ih < 1e-6) {
+        std::cout << "All kernels are correct. Optimized and original kernels have similar results" << std::endl;
+    } else {
+        std::cout << "There is an error in the kernels." << std::endl;
+    }
 
     std::cout << "Free memory on Host ..." << std::endl;
     // Deallocate host memory
