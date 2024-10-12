@@ -18,51 +18,41 @@ void updtrcjzp_kernel_optimized(const float* __restrict__ Xj,
     if (nj >= Nj)
         return;
 
-    // Load values into registers
+    // Load data into registers
     float Xj_nj = Xj[nj];
     float Zj_nj = Zj[nj];
     float Pj_nj = Pj[nj];
 
-    // Compute the updates
+    // Compute delta Zj
     float delta_Zj = (fgain * Xj_nj * (1.0f - eps) + eps - Zj_nj) * tauzjdt;
     Zj_nj += delta_Zj;
 
-    float delta_Pj = (Zj_nj - Pj_nj) * taupdt;
-    Pj_nj += delta_Pj;
-
-    // Write back to global memory
+    // Update Zj and Pj
     Zj[nj] = Zj_nj;
-    Pj[nj] = Pj_nj;
+    Pj[nj] = Pj_nj + (Zj_nj - Pj_nj) * taupdt;
 }
 
 __global__
-void updtrcizp_kernel_optimized(const float* __restrict__ Xi,
-                                int Hj, int denNi,
-                                const float fgain, const float eps,
-                                const float tauzidt, const float taupdt,
-                                float* __restrict__ Zi,
-                                float* __restrict__ Pi) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int total_elements = Hj * denNi;
-
-    if (idx >= total_elements)
+void updtrcizp_kernel_optimized(const float *__restrict__ Xi,
+                      int total_elements,
+                      float fgain, float eps, float tauzidt, float taupdt,
+                      float *__restrict__ Zi, float *__restrict__ Pi) {
+    int k = blockIdx.x * blockDim.x + threadIdx.x;
+    if (k >= total_elements)
         return;
 
-    // Load values into registers
-    float Xi_idx = Xi[idx];
-    float Zi_idx = Zi[idx];
-    float Pi_idx = Pi[idx];
+    // Load data into registers
+    float Xi_k = Xi[k];
+    float Zi_k = Zi[k];
+    float Pi_k = Pi[k];
 
-    // Compute the updates
-    float delta_Zi = (Xi_idx * fgain * (1.0f - eps) + eps - Zi_idx) * tauzidt;
-    Zi_idx += delta_Zi;
+    // Compute delta Zi
+    float delta_Zi = (Xi_k * fgain * (1.0f - eps) + eps - Zi_k) * tauzidt;
+    Zi_k += delta_Zi;
 
-    float delta_Pi = (Zi_idx - Pi_idx) * taupdt;
-    Pi_idx += delta_Pi;
-
-    // Write back to global memory
-    Zi[idx] = Zi_idx;
-    Pi[idx] = Pi_idx;
+    // Update Zi and Pi
+    Zi[k] = Zi_k;
+    Pi[k] = Pi_k + (Zi_k - Pi_k) * taupdt;
 }
 
 __global__
@@ -71,31 +61,21 @@ void updtrcjip_kernel_optimized(const float* __restrict__ Zj,
                                 int Nj, int Mj, int denNi,
                                 const float taupdt,
                                 float* __restrict__ Pji) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int total_elements = Nj * denNi;
-
-    if (idx >= total_elements)
+    int n = blockIdx.x * blockDim.x + threadIdx.x;
+    if (n >= Nj * denNi)
         return;
 
-    int nj = idx / denNi;
-    int ni = idx % denNi;
-
-    // Compute hj and access Zi accordingly
+    int nj = n / denNi;
+    int ni = n % denNi;
     int hj = nj / Mj;
     int Zi_idx = hj * denNi + ni;
     int Pji_idx = nj * denNi + ni;
 
-    // Load values into registers
-    float Zi_val = Zi[Zi_idx];
-    float Zj_val = Zj[nj];
-    float Pji_val = Pji[Pji_idx];
+    // Compute delta Pji
+    float delta_Pji = (Zi[Zi_idx] * Zj[nj] - Pji[Pji_idx]) * taupdt;
 
-    // Compute the update
-    float delta_Pji = (Zi_val * Zj_val - Pji_val) * taupdt;
-    Pji_val += delta_Pji;
-
-    // Write back to global memory
-    Pji[Pji_idx] = Pji_val;
+    // Update Pji
+    Pji[Pji_idx] += delta_Pji;
 }
 
 void updtraces_cu_optimized(const float* __restrict__ denact,
@@ -110,11 +90,12 @@ void updtraces_cu_optimized(const float* __restrict__ denact,
                   float* __restrict__ Pi,
                   float* __restrict__ Pji) {
     float prntaupdt = prn * taupdt;
+    int blockSize_1 = 256;  // Adjusted block size for better occupancy
     int blockSize = 128;  // Adjusted block size for better occupancy
 
     // Kernel 1: updtrcjzp_kernel_optimized
-    int numBlocksj = (Nj + blockSize - 1) / blockSize;
-    updtrcjzp_kernel_optimized<<<numBlocksj, blockSize>>>(
+    int numBlocksj = (Nj + blockSize_1 - 1) / blockSize_1;
+    updtrcjzp_kernel_optimized<<<numBlocksj, blockSize_1>>>(
         trgact, Nj, fgain, eps, tauzjdt, prntaupdt, Zj, Pj);
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
@@ -123,9 +104,8 @@ void updtraces_cu_optimized(const float* __restrict__ denact,
 
     // Kernel 2: updtrcizp_kernel_optimized
     int total_elements_i = Hj * denNi;
-    int numBlocksi = (total_elements_i + blockSize - 1) / blockSize;
-    updtrcizp_kernel_optimized<<<numBlocksi, blockSize>>>(
-        denact, Hj, denNi, fgain, eps, tauzidt, prntaupdt, Zi, Pi);
+    int numBlocksi = (total_elements_i + blockSize_1 - 1) / blockSize_1;
+    updtrcizp_kernel_optimized<<<numBlocksi, blockSize_1>>>(denact, total_elements_i, fgain, eps, tauzidt, prntaupdt, Zi, Pi);
     err = cudaGetLastError();
     if (err != cudaSuccess) {
         fprintf(stderr, "CUDA error in updtrcizp_kernel_optimized: %s\n", cudaGetErrorString(err));

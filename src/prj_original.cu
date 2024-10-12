@@ -5,26 +5,6 @@
 #include <kernelGlobal.cuh>
 #include "prj.cuh"
 
-__global__
-void upddenact_kernel(float *axoact, int *Hihjhi, int Hj, int denHi, int Mi, float *denact) {
-    int h = blockIdx.x * blockDim.x + threadIdx.x;
-    if (h >= Hj * denHi)
-        return;
-    int denNi = denHi * Mi;
-    int hj = h / denHi;
-    int dhi = h % denHi;
-    int hi = Hihjhi[hj * denHi + dhi];
-    for (int mi = 0; mi < Mi; mi++)
-        denact[hj * denNi + dhi * Mi + mi] = axoact[hi * Mi + mi];
-}
-
-void upddenact_cu(float *axoact, int *Hihjhi, int Hj, int denHi, int Mi, float *denact) {
-    int blockSize = 32;
-    int numBlocks_hjdhi = (Hj * denHi + blockSize - 1) / blockSize;
-    upddenact_kernel <<< numBlocks_hjdhi, blockSize>>>(axoact, Hihjhi, Hj, denHi, Mi, denact);
-    CUDA_CHECK_ERROR(cudaPeekAtLastError());
-    cudaDeviceSynchronize();
-}
 
 __global__
 void updtrcjzp_kernel(float *Xj,
