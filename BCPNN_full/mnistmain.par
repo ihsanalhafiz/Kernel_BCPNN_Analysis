@@ -6,8 +6,8 @@ Hx             784
 Mx             1
 Hin            784   
 Min            2
-Hhid           32
-Mhid           128
+Hhid           512
+Mhid           512
 Hut            1
 Mut            10
 nactHi         128
@@ -32,9 +32,9 @@ testpatfile    ../Data/mnist/mnist_teimg.bin
 testlblfile    ../Data/mnist/mnist_telbl.bin
 
 nrep           1
-nepoch         5
-trnpat         1000 # 1000, 6000, 60000
-tenpat         1000 # 1000, 6000, 10000
+nepoch         1
+trnpat         10 # 1000, 6000, 60000
+tenpat         10 # 1000, 6000, 10000
 nloop          3
 
 logenabled     false # true

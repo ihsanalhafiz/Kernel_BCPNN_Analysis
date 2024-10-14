@@ -21,3 +21,6 @@ H32_M128_full_1.ncu-rep
 H32_M128_full_2.ncu-rep
 H512_M1024_full_1.ncu-rep
 H512_M1024_full_2.ncu-rep
+test_H128_M512.ncu-rep
+test_H256_M512.ncu-rep
+test_H512_M512.ncu-rep

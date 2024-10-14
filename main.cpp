@@ -21,7 +21,7 @@ const int M_in = 2;
 const int N_in = H_in * M_in;
 
 // Layer Population Hidden
-const int H_hid = 256;
+const int H_hid = 512;
 const int M_hid = 512;
 const int N_hid = H_hid * M_hid;
 const float M_hid_inv = 1.0f/M_hid;

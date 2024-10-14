@@ -1,0 +1,40 @@
+seed           4711416 # 0
+libverbosity   0
+verbosity      4
+
+Hx             784
+Mx             1
+Hin            784   
+Min            2
+Hhid           32
+Mhid           128
+Hut            1
+Mut            10
+nactHi         128
+nsilHi         128 # 81 703
+inbinarize     true
+
+actfn          SOFTMAX
+lrule          BCPNN
+
+eps            1e-10
+# taup         # Set automatically from 'trnpat' by mnistmain.cpp
+nfreq          100
+nampl          0.001
+swaprthr       1.1
+replrthr       2
+nswap          100
+# updconnint   # Set automatically from 'trnpat' by mnistmain.cpp
+
+trainpatfile   ../Data/mnist/mnist_trimg.bin
+trainlblfile   ../Data/mnist/mnist_trlbl.bin
+testpatfile    ../Data/mnist/mnist_teimg.bin
+testlblfile    ../Data/mnist/mnist_telbl.bin
+
+nrep           1
+nepoch         1
+trnpat         10 # 1000, 6000, 60000
+tenpat         10 # 1000, 6000, 10000
+nloop          3
+
+logenabled     false # true
