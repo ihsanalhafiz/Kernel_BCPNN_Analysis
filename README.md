@@ -27,3 +27,20 @@ Performance profiling was done using Nsight Compute to evaluate execution charac
 2. Compile the code:
    ```bash
    make
+
+### Running
+Execute the main program:
+```bash
+./bin/main
+```
+
+### Profiling
+To profile kernel performance:
+```bash
+ncu --set full -o outputfile -f ./bin/main
+```
+
+### Verification
+The code verifies that optimizations do not compromise computational correctness by comparing the outputs of original and optimized kernels.
+
+
